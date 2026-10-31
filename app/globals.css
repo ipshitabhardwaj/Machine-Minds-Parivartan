@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #0f1117;
+  --bg-secondary: #161922;
+  --bg-card: #1a1d2e;
+  --bg-card-hover: #1f2336;
+  --bg-input: #12141f;
+  --border-primary: #2a2d3e;
+  --border-accent: #3a7d5e;
+  --text-primary: #e8e8ec;
+  --text-secondary: #9394a0;
+  --text-muted: #5c5d6e;
+  --accent-green: #4ade80;
+  --accent-green-dim: #22c55e;
+  --accent-green-muted: #166534;
+  --accent-coral: #f97066;
+  --accent-coral-dim: #dc2626;
+  --accent-yellow: #facc15;
+  --accent-blue: #60a5fa;
+  --glow-green: rgba(74, 222, 128, 0.15);
+  --glow-coral: rgba(249, 112, 102, 0.1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent-green-muted);
+  color: var(--accent-green);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px var(--bg-input) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.glow-border {
+  box-shadow: 0 0 0 1px var(--border-accent), 0 0 20px var(--glow-green);
+}
+
+.terminal-cursor::after {
+  content: "█";
+  animation: pulse-glow 1s infinite;
+  color: var(--accent-green);
 }
