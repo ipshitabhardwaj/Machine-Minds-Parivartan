@@ -12,6 +12,7 @@ import {
   Clock,
   TrendingUp,
   Users,
+  Flame,
 } from "lucide-react"
 import type { CompetitionStatus } from "@/types"
 
@@ -79,7 +80,6 @@ export default async function DashboardPage() {
       is_first_blood: s.is_first_blood,
     }))
 
-    // Calculate rank from solves
     const { data: teamSolves } = await admin
       .from("solves")
       .select("team_id, points_awarded")
@@ -100,19 +100,21 @@ export default async function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">
-          Welcome, {profile.display_name}
-        </h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-black tracking-tight">
+            Welcome, <span className="text-[var(--accent-primary)]">{profile.display_name}</span>
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           <Badge variant={status.is_active ? "success" : "default"}>
             {status.is_active
               ? status.is_paused
-                ? "Competition Paused"
+                ? "Paused"
                 : "Competition Active"
-              : "Competition Not Started"}
+              : "Not Started"}
           </Badge>
           {status.end_time && (
-            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+            <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 font-mono">
               <Clock className="h-3 w-3" />
               Ends: {new Date(status.end_time).toLocaleDateString()}
             </span>
@@ -126,93 +128,62 @@ export default async function DashboardPage() {
       ) : (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[var(--accent-green)]/10">
-                  <Trophy className="h-5 w-5 text-[var(--accent-green)]" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold font-mono">{teamScore}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Total Points
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <TrendingUp className="h-5 w-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold font-mono">
-                    #{teamRank || "—"}
-                  </p>
-                  <p className="text-xs text-[var(--text-secondary)]">Rank</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Flag className="h-5 w-5 text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold font-mono">
-                    {solveCount}/{totalChallenges || 0}
-                  </p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Solved
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-500/10">
-                  <Hash className="h-5 w-5 text-yellow-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold font-mono">
-                    {totalChallenges || 0}
-                  </p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Available
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger-children">
+            {[
+              { icon: Trophy, label: "Total Points", value: teamScore, color: "text-[var(--accent-primary)]", bg: "bg-[var(--accent-primary)]/10" },
+              { icon: TrendingUp, label: "Rank", value: `#${teamRank || "—"}`, color: "text-[var(--neon-blue)]", bg: "bg-[var(--neon-blue)]/10" },
+              { icon: Flag, label: "Solved", value: `${solveCount}/${totalChallenges || 0}`, color: "text-[var(--accent-purple)]", bg: "bg-[var(--accent-purple)]/10" },
+              { icon: Hash, label: "Available", value: totalChallenges || 0, color: "text-[var(--accent-yellow)]", bg: "bg-[var(--accent-yellow)]/10" },
+            ].map((stat) => (
+              <Card key={stat.label}>
+                <CardContent className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl ${stat.bg}`}>
+                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black font-mono">{stat.value}</p>
+                    <p className="text-xs text-[var(--text-muted)] font-medium">
+                      {stat.label}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* Team Info & Recent Solves */}
           <div className="grid lg:grid-cols-2 gap-6">
             <Card>
-              <CardTitle className="flex items-center gap-2 mb-4">
-                <Users className="h-5 w-5 text-[var(--accent-green)]" />
+              <CardTitle className="flex items-center gap-2 mb-5">
+                <Users className="h-5 w-5 text-[var(--accent-primary)]" />
                 Team: {teamData?.name}
               </CardTitle>
               <CardContent>
-                <div className="mb-4 p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-primary)]">
-                  <p className="text-xs text-[var(--text-muted)] mb-1">
+                <div className="mb-5 p-4 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)]">
+                  <p className="text-[10px] text-[var(--text-muted)] mb-1 font-mono uppercase tracking-wider">
                     Invite Code
                   </p>
-                  <code className="text-[var(--accent-green)] font-mono text-lg">
-                    {teamData?.invite_code}
-                  </code>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[var(--accent-primary)] font-mono text-xl font-black tracking-wider">
+                      {teamData?.invite_code}
+                    </code>
+                  </div>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] mb-2">
+                <p className="text-[10px] text-[var(--text-muted)] mb-2 font-mono uppercase tracking-wider">
                   Members ({teamMembers.length}/{status.max_team_size})
                 </p>
                 <div className="space-y-2">
                   {teamMembers.map((m) => (
                     <div
                       key={m.user_id}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-primary)] text-sm"
+                      className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
                     >
-                      <span>{m.profiles?.[0]?.display_name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        {m.profiles?.[0]?.display_name}
+                      </span>
                       {m.user_id === teamData?.captain_id && (
-                        <Badge variant="success">Captain</Badge>
+                        <Badge variant="info">Captain</Badge>
                       )}
                     </div>
                   ))}
@@ -221,29 +192,33 @@ export default async function DashboardPage() {
             </Card>
 
             <Card>
-              <CardTitle className="flex items-center gap-2 mb-4">
-                <Flag className="h-5 w-5 text-purple-400" />
+              <CardTitle className="flex items-center gap-2 mb-5">
+                <Flag className="h-5 w-5 text-[var(--accent-purple)]" />
                 Recent Solves
               </CardTitle>
               <CardContent>
                 {recentSolves.length === 0 ? (
-                  <p className="text-[var(--text-muted)] text-sm py-4 text-center">
-                    No challenges solved yet
-                  </p>
+                  <div className="text-center py-8">
+                    <p className="text-[var(--text-muted)] font-mono text-sm">
+                      {">"} No challenges solved yet
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {recentSolves.map((solve, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-primary)] text-sm"
+                        className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          <span>{solve.challenge_title}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="truncate">{solve.challenge_title}</span>
                           {solve.is_first_blood && (
-                            <Badge variant="danger">First Blood</Badge>
+                            <span className="flex items-center gap-0.5 text-[var(--accent-coral)] shrink-0">
+                              <Flame className="h-3 w-3" />
+                            </span>
                           )}
                         </div>
-                        <span className="text-[var(--accent-green)] font-mono">
+                        <span className="text-[var(--accent-primary)] font-mono font-bold shrink-0 ml-2">
                           +{solve.points}
                         </span>
                       </div>

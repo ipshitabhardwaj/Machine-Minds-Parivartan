@@ -9,7 +9,7 @@ const Select = forwardRef<
     <select
       ref={ref}
       className={cn(
-        "w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-input)] px-4 py-2.5 text-sm text-[var(--text-primary)] transition-colors focus:outline-none focus:border-[var(--border-accent)] focus:ring-1 focus:ring-[var(--border-accent)] disabled:opacity-50 appearance-none cursor-pointer",
+        "w-full rounded-xl border border-[var(--border-primary)] bg-[var(--bg-input)] px-4 py-2.5 text-sm text-[var(--text-primary)] transition-all duration-200 focus:outline-none focus:border-[var(--accent-primary)]/40 focus:ring-1 focus:ring-[var(--accent-primary)]/20 disabled:opacity-50 appearance-none cursor-pointer",
         className
       )}
       {...props}

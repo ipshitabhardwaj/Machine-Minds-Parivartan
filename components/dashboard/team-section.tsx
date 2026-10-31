@@ -60,7 +60,7 @@ export function TeamSection({ maxTeamSize }: { maxTeamSize: number }) {
         <CardContent className="mt-4">
           <form action={createAction} className="space-y-4">
             {createState.error && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 text-red-400 text-sm">
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-red-950/40 border border-red-900/40 text-red-400 text-sm">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {createState.error}
               </div>
@@ -103,7 +103,7 @@ export function TeamSection({ maxTeamSize }: { maxTeamSize: number }) {
       <CardContent className="mt-4">
         <form action={joinAction} className="space-y-4">
           {joinState.error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-950/50 border border-red-900 text-red-400 text-sm">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-950/40 border border-red-900/40 text-red-400 text-sm">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {joinState.error}
             </div>

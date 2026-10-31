@@ -39,18 +39,18 @@ export default async function AdminLayout({
 
       <div className="flex-1 flex flex-col">
         {/* Admin sub-nav */}
-        <div className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+        <div className="border-b border-white/[0.04] bg-[var(--bg-secondary)]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center gap-1 overflow-x-auto py-2 -mb-px">
+            <div className="flex items-center gap-0.5 overflow-x-auto py-2 -mb-px">
               {adminLinks.map((link) => {
                 const Icon = link.icon
                 return (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--accent-coral)] hover:bg-[var(--accent-coral)]/10 transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--neon-pink)] hover:bg-[var(--neon-pink)]/10 transition-all duration-200 whitespace-nowrap"
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5" />
                     {link.label}
                   </Link>
                 )

@@ -8,7 +8,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] p-6",
+        "rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-card)] p-6 transition-all duration-300 hover:border-[var(--accent-primary)]/20 relative overflow-hidden",
         className
       )}
       {...props}
@@ -30,7 +30,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-lg font-semibold text-[var(--text-primary)]",
+        "text-lg font-bold text-[var(--text-primary)]",
         className
       )}
       {...props}

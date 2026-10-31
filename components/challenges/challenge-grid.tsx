@@ -10,7 +10,7 @@ import {
   type ChallengeCategory,
   type ChallengeDifficulty,
 } from "@/types"
-import { CheckCircle, Flame } from "lucide-react"
+import { CheckCircle, Flame, ChevronRight } from "lucide-react"
 
 interface ChallengeItem {
   id: string
@@ -53,21 +53,22 @@ export function ChallengeGrid({
   return (
     <div>
       {!hasTeam && (
-        <div className="mb-6 p-4 rounded-lg border border-yellow-800 bg-yellow-950/30 text-yellow-400 text-sm">
+        <div className="mb-6 p-4 rounded-xl border border-yellow-800/40 bg-yellow-950/20 text-yellow-400 text-sm flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-yellow-400/60 shrink-0" />
           You must join or create a team before submitting flags.
         </div>
       )}
 
       {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-8 p-1.5 bg-[var(--bg-card)]/50 rounded-xl border border-[var(--border-primary)] w-fit">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
               filter === cat
-                ? "bg-[var(--accent-green)]/20 text-[var(--accent-green)] border border-[var(--accent-green)]/30"
-                : "bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-primary)] hover:text-[var(--text-primary)]"
+                ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] shadow-sm"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
             }`}
           >
             {cat === "all" ? "All" : CATEGORY_LABELS[cat]}
@@ -76,7 +77,7 @@ export function ChallengeGrid({
       </div>
 
       {/* Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
         {filtered.map((challenge) => {
           const solved = solvedIds.includes(challenge.id)
           const fb = firstBloods[challenge.id]
@@ -84,37 +85,41 @@ export function ChallengeGrid({
             <Link
               key={challenge.id}
               href={`/challenges/${challenge.id}`}
-              className={`block p-5 rounded-xl border transition-all group ${
+              className={`group block p-5 rounded-2xl border transition-all duration-300 card-hover ${
                 solved
-                  ? "border-green-800/50 bg-green-950/20 hover:border-green-700"
-                  : "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--border-accent)]"
+                  ? "border-green-800/30 bg-green-950/10 hover:border-green-700/40"
+                  : "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--accent-primary)]/30"
               }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <Badge variant="outline">
                   {CATEGORY_LABELS[challenge.category]}
                 </Badge>
-                {solved && (
-                  <CheckCircle className="h-5 w-5 text-green-400" />
-                )}
+                <div className="flex items-center gap-2">
+                  {solved && (
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                  )}
+                  <ChevronRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all" />
+                </div>
               </div>
-              <h3 className="font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--accent-green)] transition-colors">
+              <h3 className="font-bold text-[var(--text-primary)] mb-3 group-hover:text-[var(--accent-primary)] transition-colors">
                 {challenge.title}
               </h3>
               <div className="flex items-center justify-between">
                 <span
-                  className={`text-sm font-medium ${
+                  className={`text-xs font-bold uppercase tracking-wider ${
                     DIFFICULTY_COLORS[challenge.difficulty]
                   }`}
                 >
                   {DIFFICULTY_LABELS[challenge.difficulty]}
                 </span>
-                <span className="text-[var(--accent-green)] font-mono font-bold">
-                  {challenge.points} pts
+                <span className="text-[var(--accent-primary)] font-mono font-black text-lg">
+                  {challenge.points}
+                  <span className="text-xs text-[var(--text-muted)] ml-0.5">pts</span>
                 </span>
               </div>
               {fb && (
-                <div className="mt-2 flex items-center gap-1 text-xs text-[var(--accent-coral)]">
+                <div className="mt-3 pt-3 border-t border-[var(--border-primary)] flex items-center gap-1.5 text-xs text-[var(--accent-coral)]">
                   <Flame className="h-3 w-3" />
                   First blood: {fb}
                 </div>
@@ -125,9 +130,11 @@ export function ChallengeGrid({
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-[var(--text-muted)] py-12">
-          No challenges in this category yet.
-        </p>
+        <div className="text-center py-16">
+          <p className="text-[var(--text-muted)] font-mono text-sm">
+            {">"} No challenges in this category yet
+          </p>
+        </div>
       )}
     </div>
   )

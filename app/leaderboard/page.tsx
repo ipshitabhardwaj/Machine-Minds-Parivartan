@@ -3,7 +3,7 @@ export const instant = false
 import { requireAuth } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Flame, Clock } from "lucide-react"
+import { Trophy, Flame, Clock, Crown, Medal } from "lucide-react"
 import type { LeaderboardEntry } from "@/types"
 import { timeAgo } from "@/lib/utils"
 
@@ -11,7 +11,6 @@ export default async function LeaderboardPage() {
   const profile = await requireAuth()
   const admin = createAdminClient()
 
-  // Check if leaderboard is frozen
   const { data: frozenSetting } = await admin
     .from("competition_settings")
     .select("value")
@@ -20,7 +19,6 @@ export default async function LeaderboardPage() {
 
   const isFrozen = frozenSetting?.value === "true"
 
-  // Build leaderboard from solves
   const { data: solves } = await admin
     .from("solves")
     .select("team_id, points_awarded, is_first_blood, solved_at, teams(name)")
@@ -59,7 +57,6 @@ export default async function LeaderboardPage() {
     teamMap.set(s.team_id, existing)
   }
 
-  // Also include teams with 0 solves
   const { data: allTeams } = await admin.from("teams").select("id, name")
   for (const t of allTeams || []) {
     if (!teamMap.has(t.id)) {
@@ -73,7 +70,6 @@ export default async function LeaderboardPage() {
     }
   }
 
-  // Sort: by points desc, then by last solve time asc (earlier is better)
   const leaderboard: LeaderboardEntry[] = [...teamMap.entries()]
     .sort((a, b) => {
       if (b[1].total_points !== a[1].total_points) {
@@ -97,27 +93,30 @@ export default async function LeaderboardPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-[var(--accent-green)]" />
+          <h1 className="text-2xl font-black flex items-center gap-2 tracking-tight">
+            <Trophy className="h-6 w-6 text-[var(--accent-primary)]" />
             Leaderboard
           </h1>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">
-            Team rankings by total points
+          <p className="text-[var(--text-muted)] text-sm mt-1 font-mono">
+            {">"} Team rankings by total points
           </p>
         </div>
         {isFrozen && (
-          <Badge variant="warning">Leaderboard Frozen</Badge>
+          <Badge variant="warning">Frozen</Badge>
         )}
       </div>
 
       {leaderboard.length === 0 ? (
-        <div className="text-center py-16 text-[var(--text-muted)]">
-          No teams registered yet.
+        <div className="text-center py-20 rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-card)]">
+          <Trophy className="h-10 w-10 text-[var(--text-muted)] mx-auto mb-3" />
+          <p className="text-[var(--text-muted)] font-mono text-sm">
+            {">"} No teams registered yet
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
           {/* Header */}
-          <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
+          <div className="grid grid-cols-12 gap-2 px-5 py-2.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider font-mono">
             <div className="col-span-1">#</div>
             <div className="col-span-5 sm:col-span-4">Team</div>
             <div className="col-span-2 text-right">Points</div>
@@ -127,22 +126,25 @@ export default async function LeaderboardPage() {
 
           {leaderboard.map((entry) => {
             const isMyTeam = entry.team_id === profile.team_id
+            const isTop3 = entry.rank <= 3
             return (
               <div
                 key={entry.team_id}
-                className={`grid grid-cols-12 gap-2 px-4 py-3 rounded-lg border text-sm items-center ${
+                className={`grid grid-cols-12 gap-2 px-5 py-3.5 rounded-xl border text-sm items-center transition-all duration-200 ${
                   isMyTeam
-                    ? "border-[var(--accent-green)]/30 bg-[var(--accent-green)]/5"
-                    : "border-[var(--border-primary)] bg-[var(--bg-card)]"
-                } ${entry.rank <= 3 ? "font-medium" : ""}`}
+                    ? "border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/5"
+                    : isTop3
+                    ? "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--accent-primary)]/20"
+                    : "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--border-primary)] hover:bg-[var(--bg-card-hover)]"
+                }`}
               >
-                <div className="col-span-1">
+                <div className="col-span-1 font-mono font-black">
                   {entry.rank === 1 ? (
-                    <span className="text-yellow-400 font-bold">1</span>
+                    <Crown className="h-5 w-5 text-yellow-400" />
                   ) : entry.rank === 2 ? (
-                    <span className="text-gray-300 font-bold">2</span>
+                    <Medal className="h-5 w-5 text-gray-300" />
                   ) : entry.rank === 3 ? (
-                    <span className="text-orange-400 font-bold">3</span>
+                    <Medal className="h-5 w-5 text-orange-400" />
                   ) : (
                     <span className="text-[var(--text-muted)]">
                       {entry.rank}
@@ -150,26 +152,26 @@ export default async function LeaderboardPage() {
                   )}
                 </div>
                 <div className="col-span-5 sm:col-span-4 flex items-center gap-2 min-w-0">
-                  <span className="truncate">
+                  <span className={`truncate font-bold ${isTop3 ? "text-[var(--text-primary)]" : ""}`}>
                     {entry.team_name}
                   </span>
                   {isMyTeam && (
-                    <Badge variant="success" className="shrink-0">You</Badge>
+                    <Badge variant="info" className="shrink-0">You</Badge>
                   )}
                   {entry.first_bloods > 0 && (
                     <span className="flex items-center gap-0.5 text-[var(--accent-coral)] shrink-0" title={`${entry.first_bloods} first blood(s)`}>
                       <Flame className="h-3 w-3" />
-                      <span className="text-xs">{entry.first_bloods}</span>
+                      <span className="text-xs font-bold">{entry.first_bloods}</span>
                     </span>
                   )}
                 </div>
-                <div className="col-span-2 text-right font-mono text-[var(--accent-green)]">
+                <div className="col-span-2 text-right font-mono font-black text-[var(--accent-primary)]">
                   {entry.total_points}
                 </div>
-                <div className="col-span-2 text-right hidden sm:block text-[var(--text-secondary)]">
+                <div className="col-span-2 text-right hidden sm:block text-[var(--text-secondary)] font-mono">
                   {entry.solves_count}
                 </div>
-                <div className="col-span-2 sm:col-span-3 text-right text-[var(--text-muted)] text-xs flex items-center justify-end gap-1">
+                <div className="col-span-2 sm:col-span-3 text-right text-[var(--text-muted)] text-xs flex items-center justify-end gap-1 font-mono">
                   {entry.last_solve_time ? (
                     <>
                       <Clock className="h-3 w-3" />
