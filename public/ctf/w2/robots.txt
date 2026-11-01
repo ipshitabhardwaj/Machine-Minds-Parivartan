@@ -1,0 +1,2 @@
+User-agent: *
+Disallow: /ctf/w2/vault-7f3a.html

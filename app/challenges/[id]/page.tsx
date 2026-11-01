@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation"
+import { connection } from "next/server"
+import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { requireAuth } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -13,14 +14,26 @@ import { FlagSubmission } from "@/components/challenges/flag-submission"
 import { HintButton } from "@/components/challenges/hint-button"
 import { ArrowLeft, Flame, Download, CheckCircle } from "lucide-react"
 import Markdown from "react-markdown"
+import { WaitingRoom } from "@/components/challenges/waiting-room"
+import { getCompetitionState } from "@/lib/competition"
 
 export default async function ChallengePage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
+  await connection()
+
   const { id } = await params
   const profile = await requireAuth()
+
+  if (!profile.team_id && !profile.is_admin) redirect("/dashboard")
+
+  const state = await getCompetitionState()
+  if (state.phase === "upcoming" && !profile.is_admin) {
+    return <WaitingRoom startTime={state.startTime} />
+  }
+
   const admin = createAdminClient()
 
   const { data: challenge } = await admin

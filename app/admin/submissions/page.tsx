@@ -1,11 +1,14 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/utils"
 import { FileText, CheckCircle, XCircle } from "lucide-react"
 
 export default async function AdminSubmissionsPage() {
+  await connection()
+
   const admin = createAdminClient()
 
   const { data: submissions } = await admin

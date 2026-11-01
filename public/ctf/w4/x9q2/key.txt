@@ -1,0 +1,3 @@
+Last step. The line below is hex. Decode it, then read the result backwards.
+
+7d73626d75726364616572625f6568745f776f6c6c6f667b67616c66

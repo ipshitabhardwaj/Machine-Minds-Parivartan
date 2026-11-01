@@ -1,12 +1,25 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { requireAuth } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ChallengeGrid } from "@/components/challenges/challenge-grid"
+import { WaitingRoom } from "@/components/challenges/waiting-room"
+import { getCompetitionState } from "@/lib/competition"
 import type { Challenge } from "@/types"
 
 export default async function ChallengesPage() {
+  await connection()
+
   const profile = await requireAuth()
+  if (!profile.team_id && !profile.is_admin) redirect("/dashboard")
+
+  const state = await getCompetitionState()
+  if (state.phase === "upcoming" && !profile.is_admin) {
+    return <WaitingRoom startTime={state.startTime} />
+  }
+
   const admin = createAdminClient()
 
   const { data: challenges } = await admin

@@ -8,7 +8,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-card)] p-6 transition-all duration-300 hover:border-[var(--accent-primary)]/20 relative overflow-hidden",
+        "border border-[var(--border-primary)] bg-[var(--bg-card)] p-6 transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-card-hover)] relative overflow-hidden",
         className
       )}
       {...props}

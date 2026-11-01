@@ -26,7 +26,7 @@ export function MatrixRain() {
     }
 
     function draw() {
-      ctx!.fillStyle = "rgba(3, 7, 18, 0.06)"
+      ctx!.fillStyle = "rgba(7, 9, 10, 0.06)"
       ctx!.fillRect(0, 0, canvas!.width, canvas!.height)
 
       for (let i = 0; i < drops.length; i++) {
@@ -35,14 +35,14 @@ export function MatrixRain() {
         const brightness = Math.random()
 
         if (brightness > 0.96) {
-          ctx!.fillStyle = "rgba(0, 212, 255, 0.7)"
-          ctx!.shadowBlur = 8
-          ctx!.shadowColor = "rgba(0, 212, 255, 0.4)"
+          ctx!.fillStyle = "rgba(61, 220, 151, 0.55)"
+          ctx!.shadowBlur = 6
+          ctx!.shadowColor = "rgba(61, 220, 151, 0.3)"
         } else if (brightness > 0.8) {
-          ctx!.fillStyle = "rgba(59, 130, 246, 0.2)"
+          ctx!.fillStyle = "rgba(61, 220, 151, 0.12)"
           ctx!.shadowBlur = 0
         } else {
-          ctx!.fillStyle = "rgba(59, 130, 246, 0.05)"
+          ctx!.fillStyle = "rgba(255, 255, 255, 0.03)"
           ctx!.shadowBlur = 0
         }
 
@@ -73,7 +73,7 @@ export function MatrixRain() {
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none opacity-30"
+      className="absolute inset-0 w-full h-full pointer-events-none opacity-25"
       aria-hidden="true"
     />
   )

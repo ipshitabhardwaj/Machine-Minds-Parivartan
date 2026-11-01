@@ -1,15 +1,21 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AdminSettingsForm } from "@/components/admin/settings-form"
 import { Settings } from "lucide-react"
+import { getCompetitionState } from "@/lib/competition"
 
 export default async function AdminSettingsPage() {
+  await connection()
+
   const admin = createAdminClient()
 
   const { data: settings } = await admin
     .from("competition_settings")
     .select("key, value")
+
+  const state = await getCompetitionState()
 
   const settingsMap = Object.fromEntries(
     (settings || []).map((s: { key: string; value: string }) => [s.key, s.value])
@@ -22,7 +28,7 @@ export default async function AdminSettingsPage() {
         Competition Settings
       </h1>
 
-      <AdminSettingsForm settings={settingsMap} />
+      <AdminSettingsForm settings={settingsMap} phase={state.phase} />
     </div>
   )
 }

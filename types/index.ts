@@ -4,6 +4,7 @@ export interface Profile {
   display_name: string
   is_admin: boolean
   team_id: string | null
+  college: string | null
   created_at: string
 }
 
@@ -84,18 +85,16 @@ export type ChallengeCategory =
   | "crypto"
   | "forensics"
   | "osint"
-  | "reverse"
-  | "ai"
+  | "misc"
 
 export type ChallengeDifficulty = "easy" | "medium" | "hard" | "expert"
 
 export const CATEGORY_LABELS: Record<ChallengeCategory, string> = {
-  web: "Web Exploitation",
+  web: "Web",
   crypto: "Cryptography",
   forensics: "Digital Forensics",
   osint: "OSINT",
-  reverse: "Reverse Engineering",
-  ai: "AI & Prompt Security",
+  misc: "Miscellaneous",
 }
 
 export const DIFFICULTY_LABELS: Record<ChallengeDifficulty, string> = {

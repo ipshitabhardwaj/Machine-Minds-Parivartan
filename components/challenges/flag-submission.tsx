@@ -46,7 +46,7 @@ export function FlagSubmission({ challengeId }: { challengeId: string }) {
           <Input
             name="flag"
             required
-            placeholder="MM{your_flag_here}"
+            placeholder="flag{your_flag_here}"
             className="font-mono flex-1"
           />
           <Button type="submit" disabled={pending} size="md">

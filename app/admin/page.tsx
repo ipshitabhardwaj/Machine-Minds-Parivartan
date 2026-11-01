@@ -1,10 +1,13 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Flag, FileText, CheckCircle, Trophy, AlertTriangle, Shield } from "lucide-react"
 
 export default async function AdminOverviewPage() {
+  await connection()
+
   const admin = createAdminClient()
 
   const [
@@ -42,23 +45,23 @@ export default async function AdminOverviewPage() {
       icon: Users,
       label: "Registered Users",
       value: totalUsers || 0,
-      color: "text-[var(--accent-primary)]",
-      bg: "bg-[var(--accent-primary)]/10",
+      color: "text-[var(--accent)]",
+      bg: "bg-[var(--accent)]/10",
     },
     {
       icon: Trophy,
       label: "Teams",
       value: totalTeams || 0,
-      color: "text-[var(--accent-purple)]",
-      bg: "bg-[var(--accent-purple)]/10",
+      color: "text-[var(--accent-blue)]",
+      bg: "bg-[var(--accent-blue)]/10",
     },
     {
       icon: Flag,
       label: "Challenges",
       value: `${activeChallenges || 0} / ${totalChallenges || 0}`,
       subtitle: "active / total",
-      color: "text-[var(--neon-blue)]",
-      bg: "bg-[var(--neon-blue)]/10",
+      color: "text-[var(--accent-green)]",
+      bg: "bg-[var(--accent-green)]/10",
     },
     {
       icon: FileText,
@@ -95,22 +98,22 @@ export default async function AdminOverviewPage() {
   ]
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       <div className="flex items-center gap-3 mb-8">
-        <div className="p-2 rounded-xl bg-[var(--neon-pink)]/10">
-          <Shield className="h-5 w-5 text-[var(--neon-pink)]" />
+        <div className="p-2 bg-[var(--accent-yellow)]/10">
+          <Shield className="h-5 w-5 text-[var(--accent-yellow)]" />
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tight">Admin Dashboard</h1>
-          <p className="text-[var(--text-muted)] text-xs font-mono">{">"} System overview</p>
+          <p className="text-[var(--text-muted)] text-xs font-mono">{">"} system overview</p>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
         {stats.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${stat.bg}`}>
+              <div className={`p-3 ${stat.bg}`}>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
               <div>

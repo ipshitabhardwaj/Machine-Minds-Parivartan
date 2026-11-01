@@ -1,5 +1,6 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
 import { requireAuth } from "@/lib/auth"
@@ -9,6 +10,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  await connection()
+
   const profile = await requireAuth()
 
   return (

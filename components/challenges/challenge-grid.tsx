@@ -33,8 +33,7 @@ const categories: (ChallengeCategory | "all")[] = [
   "crypto",
   "forensics",
   "osint",
-  "reverse",
-  "ai",
+  "misc",
 ]
 
 export function ChallengeGrid({
@@ -53,22 +52,22 @@ export function ChallengeGrid({
   return (
     <div>
       {!hasTeam && (
-        <div className="mb-6 p-4 rounded-xl border border-yellow-800/40 bg-yellow-950/20 text-yellow-400 text-sm flex items-center gap-2">
+        <div className="mb-6 p-4 border border-yellow-800/40 bg-yellow-950/20 text-yellow-400 text-sm flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400/60 shrink-0" />
           You must join or create a team before submitting flags.
         </div>
       )}
 
       {/* Category Filter */}
-      <div className="flex flex-wrap gap-2 mb-8 p-1.5 bg-[var(--bg-card)]/50 rounded-xl border border-[var(--border-primary)] w-fit">
+      <div className="flex flex-wrap gap-1 mb-8 p-1 bg-[var(--bg-card)] border border-[var(--border-primary)] w-fit">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors cursor-pointer ${
               filter === cat
-                ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] shadow-sm"
-                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
+                ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]"
             }`}
           >
             {cat === "all" ? "All" : CATEGORY_LABELS[cat]}
@@ -77,7 +76,7 @@ export function ChallengeGrid({
       </div>
 
       {/* Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
         {filtered.map((challenge) => {
           const solved = solvedIds.includes(challenge.id)
           const fb = firstBloods[challenge.id]
@@ -85,10 +84,10 @@ export function ChallengeGrid({
             <Link
               key={challenge.id}
               href={`/challenges/${challenge.id}`}
-              className={`group block p-5 rounded-2xl border transition-all duration-300 card-hover ${
+              className={`group block p-5 border transition-colors card-lift ${
                 solved
                   ? "border-green-800/30 bg-green-950/10 hover:border-green-700/40"
-                  : "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--accent-primary)]/30"
+                  : "border-[var(--border-primary)] bg-[var(--bg-card)] hover:border-[var(--border-hover)]"
               }`}
             >
               <div className="flex items-start justify-between mb-3">
@@ -99,10 +98,10 @@ export function ChallengeGrid({
                   {solved && (
                     <CheckCircle className="h-5 w-5 text-green-400" />
                   )}
-                  <ChevronRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all" />
+                  <ChevronRight className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all" />
                 </div>
               </div>
-              <h3 className="font-bold text-[var(--text-primary)] mb-3 group-hover:text-[var(--accent-primary)] transition-colors">
+              <h3 className="font-bold text-[var(--text-primary)] mb-3 group-hover:text-[var(--accent)] transition-colors">
                 {challenge.title}
               </h3>
               <div className="flex items-center justify-between">
@@ -113,7 +112,7 @@ export function ChallengeGrid({
                 >
                   {DIFFICULTY_LABELS[challenge.difficulty]}
                 </span>
-                <span className="text-[var(--accent-primary)] font-mono font-black text-lg">
+                <span className="text-[var(--accent)] font-mono font-black text-lg">
                   {challenge.points}
                   <span className="text-xs text-[var(--text-muted)] ml-0.5">pts</span>
                 </span>

@@ -1,10 +1,10 @@
 export const instant = false
 
+import { connection } from "next/server"
 import { requireAuth } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { TeamSection } from "@/components/dashboard/team-section"
 import {
   Trophy,
   Flag,
@@ -15,6 +15,8 @@ import {
   Flame,
 } from "lucide-react"
 import type { CompetitionStatus } from "@/types"
+import { getCompetitionState } from "@/lib/competition"
+import Link from "next/link"
 
 async function getCompetitionStatus(): Promise<CompetitionStatus> {
   const admin = createAdminClient()
@@ -29,19 +31,21 @@ async function getCompetitionStatus(): Promise<CompetitionStatus> {
     start_time: map.start_time || null,
     end_time: map.end_time || null,
     competition_name: map.competition_name || "MACHINE MINDS",
-    flag_format: map.flag_format || "MM{...}",
+    flag_format: map.flag_format || "flag{...}",
     max_team_size: parseInt(map.max_team_size || "4"),
     min_team_size: parseInt(map.min_team_size || "2"),
   }
 }
 
 export default async function DashboardPage() {
+  await connection()
+
   const profile = await requireAuth()
   const admin = createAdminClient()
   const status = await getCompetitionStatus()
+  const compState = await getCompetitionState()
 
   let teamData = null
-  let teamMembers: { user_id: string; profiles: { display_name: string; email: string }[] }[] = []
   let teamScore = 0
   let solveCount = 0
   let teamRank = 0
@@ -54,12 +58,6 @@ export default async function DashboardPage() {
       .eq("id", profile.team_id)
       .single()
     teamData = team
-
-    const { data: members } = await admin
-      .from("team_members")
-      .select("user_id, profiles(display_name, email)")
-      .eq("team_id", profile.team_id)
-    teamMembers = (members || []) as typeof teamMembers
 
     const { data: solves } = await admin
       .from("solves")
@@ -97,21 +95,31 @@ export default async function DashboardPage() {
     .eq("is_active", true)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="text-2xl font-black tracking-tight">
-            Welcome, <span className="text-[var(--accent-primary)]">{profile.display_name}</span>
+            Welcome, <span className="text-[var(--accent)]">{profile.display_name}</span>
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant={status.is_active ? "success" : "default"}>
-            {status.is_active
-              ? status.is_paused
+          <Badge
+            variant={
+              compState.phase === "live"
+                ? "success"
+                : compState.phase === "paused"
+                  ? "warning"
+                  : "default"
+            }
+          >
+            {compState.phase === "live"
+              ? "Competition Live"
+              : compState.phase === "paused"
                 ? "Paused"
-                : "Competition Active"
-              : "Not Started"}
+                : compState.phase === "ended"
+                  ? "Ended"
+                  : "Not Started"}
           </Badge>
           {status.end_time && (
             <span className="text-xs text-[var(--text-muted)] flex items-center gap-1 font-mono">
@@ -122,22 +130,63 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {compState.phase === "ended" && (
+        <Link
+          href="/leaderboard"
+          className="block mb-6 border border-[var(--accent)]/40 bg-[var(--accent)]/5 px-4 py-3 font-mono text-sm text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
+        >
+          {">"} The competition has ended — view the final results and top 3 →
+        </Link>
+      )}
+      {compState.phase === "upcoming" && (
+        <div className="mb-6 border border-[var(--border-hover)] bg-[var(--bg-card)] px-4 py-3 font-mono text-sm text-[var(--text-secondary)]">
+          {">"} You are logged in. Challenges unlock when the organisers start the event.
+        </div>
+      )}
+
       {/* Team Section */}
       {!profile.team_id ? (
-        <TeamSection maxTeamSize={status.max_team_size} />
+        profile.is_admin ? (
+          <Card className="max-w-2xl">
+            <CardTitle>You are logged in as an organiser</CardTitle>
+            <CardContent className="mt-3 text-sm text-[var(--text-secondary)]">
+              <p className="mb-4">
+                This page is the team view, so it is empty for you. Run the event from the admin panel.
+              </p>
+              <div className="flex flex-wrap gap-3 font-mono text-sm">
+                <Link href="/admin" className="bg-[var(--accent)] text-[#080c33] font-bold px-4 py-2 hover:bg-[var(--accent-bright)] transition-colors">
+                  Open admin panel
+                </Link>
+                <Link href="/admin/import" className="border border-[var(--line)] px-4 py-2 hover:border-[var(--accent)] transition-colors">
+                  Import teams
+                </Link>
+                <Link href="/admin/settings" className="border border-[var(--line)] px-4 py-2 hover:border-[var(--accent)] transition-colors">
+                  Start or end the event
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="max-w-lg">
+            <CardTitle>This login is not on a team</CardTitle>
+            <CardContent className="mt-3 text-sm text-[var(--text-secondary)]">
+              Teams are set up by the organisers. Ask at the desk for your team&apos;s Team ID and password.
+            </CardContent>
+          </Card>
+        )
       ) : (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger-children">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 stagger">
             {[
-              { icon: Trophy, label: "Total Points", value: teamScore, color: "text-[var(--accent-primary)]", bg: "bg-[var(--accent-primary)]/10" },
-              { icon: TrendingUp, label: "Rank", value: `#${teamRank || "—"}`, color: "text-[var(--neon-blue)]", bg: "bg-[var(--neon-blue)]/10" },
-              { icon: Flag, label: "Solved", value: `${solveCount}/${totalChallenges || 0}`, color: "text-[var(--accent-purple)]", bg: "bg-[var(--accent-purple)]/10" },
+              { icon: Trophy, label: "Total Points", value: teamScore, color: "text-[var(--accent)]", bg: "bg-[var(--accent)]/10" },
+              { icon: TrendingUp, label: "Rank", value: `#${teamRank || "—"}`, color: "text-[var(--accent-blue)]", bg: "bg-[var(--accent-blue)]/10" },
+              { icon: Flag, label: "Solved", value: `${solveCount}/${totalChallenges || 0}`, color: "text-[var(--accent-green)]", bg: "bg-[var(--accent-green)]/10" },
               { icon: Hash, label: "Available", value: totalChallenges || 0, color: "text-[var(--accent-yellow)]", bg: "bg-[var(--accent-yellow)]/10" },
             ].map((stat) => (
               <Card key={stat.label}>
                 <CardContent className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-xl ${stat.bg}`}>
+                  <div className={`p-2.5 ${stat.bg}`}>
                     <stat.icon className={`h-5 w-5 ${stat.color}`} />
                   </div>
                   <div>
@@ -155,45 +204,39 @@ export default async function DashboardPage() {
           <div className="grid lg:grid-cols-2 gap-6">
             <Card>
               <CardTitle className="flex items-center gap-2 mb-5">
-                <Users className="h-5 w-5 text-[var(--accent-primary)]" />
+                <Users className="h-5 w-5 text-[var(--accent)]" />
                 Team: {teamData?.name}
               </CardTitle>
               <CardContent>
-                <div className="mb-5 p-4 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)]">
-                  <p className="text-[10px] text-[var(--text-muted)] mb-1 font-mono uppercase tracking-wider">
-                    Invite Code
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-[var(--accent-primary)] font-mono text-xl font-black tracking-wider">
-                      {teamData?.invite_code}
-                    </code>
-                  </div>
+                <div className="mb-5 p-4 bg-[var(--bg-primary)] border border-[var(--border-primary)]">
+                  <p className="text-xs text-[var(--text-muted)] mb-1">Team ID</p>
+                  <code className="text-[var(--accent)] font-mono text-2xl font-black tracking-wider">
+                    {teamData?.team_code}
+                  </code>
+                  {teamData?.college && (
+                    <p className="mt-2 text-sm text-[var(--text-secondary)]">{teamData.college}</p>
+                  )}
                 </div>
-                <p className="text-[10px] text-[var(--text-muted)] mb-2 font-mono uppercase tracking-wider">
-                  Members ({teamMembers.length}/{status.max_team_size})
-                </p>
+                <p className="text-xs text-[var(--text-muted)] mb-2">Members</p>
                 <div className="space-y-2">
-                  {teamMembers.map((m) => (
-                    <div
-                      key={m.user_id}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                        {m.profiles?.[0]?.display_name}
-                      </span>
-                      {m.user_id === teamData?.captain_id && (
-                        <Badge variant="info">Captain</Badge>
-                      )}
-                    </div>
-                  ))}
+                  {[teamData?.member1_name, teamData?.member2_name]
+                    .filter(Boolean)
+                    .map((name: string) => (
+                      <div
+                        key={name}
+                        className="flex items-center gap-2 px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green)]" />
+                        {name}
+                      </div>
+                    ))}
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardTitle className="flex items-center gap-2 mb-5">
-                <Flag className="h-5 w-5 text-[var(--accent-purple)]" />
+                <Flag className="h-5 w-5 text-[var(--accent-green)]" />
                 Recent Solves
               </CardTitle>
               <CardContent>
@@ -208,7 +251,7 @@ export default async function DashboardPage() {
                     {recentSolves.map((solve, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
+                        className="flex items-center justify-between px-3 py-2.5 bg-[var(--bg-primary)] border border-[var(--border-primary)] text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="truncate">{solve.challenge_title}</span>
@@ -218,7 +261,7 @@ export default async function DashboardPage() {
                             </span>
                           )}
                         </div>
-                        <span className="text-[var(--accent-primary)] font-mono font-bold shrink-0 ml-2">
+                        <span className="text-[var(--accent)] font-mono font-bold shrink-0 ml-2">
                           +{solve.points}
                         </span>
                       </div>

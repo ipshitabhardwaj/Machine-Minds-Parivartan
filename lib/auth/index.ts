@@ -1,17 +1,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
+import { cache } from "react"
 import type { Profile } from "@/types"
 
-export async function getUser() {
+export const getUser = cache(async () => {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   return user
-}
+})
 
-export async function getProfile(): Promise<Profile | null> {
+export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient()
   const {
     data: { user },
@@ -26,7 +27,7 @@ export async function getProfile(): Promise<Profile | null> {
     .single()
 
   return profile
-}
+})
 
 export async function requireAuth(): Promise<Profile> {
   const profile = await getProfile()

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 import { createHash } from "crypto"
+import { getCompetitionState } from "@/lib/competition"
 
 function hashFlag(flag: string): string {
   return createHash("sha256").update(flag.trim()).digest("hex")
@@ -49,25 +50,24 @@ export async function submitFlag(
     return { error: "Missing challenge ID or flag", success: false, message: null }
   }
 
-  // Check competition status
-  const { data: settings } = await admin
-    .from("competition_settings")
-    .select("key, value")
-    .in("key", ["is_active", "is_paused"])
+  // Check competition status (server-side source of truth)
+  const state = await getCompetitionState()
 
-  const settingsMap = Object.fromEntries(
-    (settings || []).map((s: { key: string; value: string }) => [s.key, s.value])
-  )
-
-  if (settingsMap.is_active !== "true") {
+  if (state.phase === "upcoming") {
     return {
-      error: "The competition is not active",
+      error: "The competition has not started yet",
       success: false,
       message: null,
     }
   }
-
-  if (settingsMap.is_paused === "true") {
+  if (state.phase === "ended") {
+    return {
+      error: "The competition has ended",
+      success: false,
+      message: null,
+    }
+  }
+  if (state.phase === "paused") {
     return {
       error: "Submissions are currently paused",
       success: false,
@@ -225,6 +225,11 @@ export async function unlockHint(challengeId: string) {
 
   if (!profile?.team_id) {
     return { error: "You must be in a team", hint: null }
+  }
+
+  const hintState = await getCompetitionState()
+  if (hintState.phase !== "live" && hintState.phase !== "paused") {
+    return { error: "The competition is not running", hint: null }
   }
 
   const { data: challenge } = await admin

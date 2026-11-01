@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { useActionState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -8,50 +8,49 @@ import { login } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Shield, AlertCircle, Terminal } from "lucide-react"
+import { AlertCircle, Terminal } from "lucide-react"
 
 function LoginForm() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get("redirect") || ""
   const [state, formAction, pending] = useActionState(login, { error: null as string | null })
+  const [organiser, setOrganiser] = useState(false)
 
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
         <Link href="/" className="inline-flex items-center gap-2 mb-6">
-          <Shield className="h-7 w-7 text-[var(--accent-primary)]" />
-          <span className="font-mono font-bold text-lg">
-            <span className="text-[var(--accent-primary)]">MM</span>
-            <span className="text-[var(--text-muted)]">{"/"}</span>
-            <span className="text-[var(--text-primary)]">CTF</span>
-          </span>
+          <span className="block h-4 w-4 bg-[var(--accent)]" aria-hidden="true" />
+          <span className="font-stencil text-2xl font-black uppercase leading-none tracking-wide">Machine Minds</span>
         </Link>
-        <h1 className="text-2xl font-black tracking-tight">Sign In</h1>
+        <h1 className="font-display text-5xl font-extrabold uppercase leading-none tracking-tight">Team log in</h1>
         <p className="text-[var(--text-secondary)] text-sm mt-1">
-          Access your terminal
+          Use the Team ID and password the organisers gave your team.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-card)] p-6">
+      <div className="cyber-panel p-6">
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="redirect" value={redirect} />
 
           {state.error && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-950/40 border border-red-900/40 text-red-400 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-red-950/40 border border-red-900/40 text-red-400 text-sm">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {state.error}
             </div>
           )}
 
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="identifier">{organiser ? "Organiser email" : "Team ID"}</Label>
             <Input
-              id="email"
-              name="email"
-              type="email"
+              id="identifier"
+              name="identifier"
+              type={organiser ? "email" : "text"}
               required
-              autoComplete="email"
-              placeholder="you@example.com"
+              autoComplete="username"
+              autoCapitalize={organiser ? "none" : "characters"}
+              spellCheck={false}
+              placeholder={organiser ? "you@example.com" : "MM-014"}
             />
           </div>
 
@@ -63,7 +62,7 @@ function LoginForm() {
               type="password"
               required
               autoComplete="current-password"
-              placeholder="Your password"
+              placeholder="8-character password"
             />
           </div>
 
@@ -76,7 +75,7 @@ function LoginForm() {
             ) : (
               <>
                 <Terminal className="h-4 w-4" />
-                Sign In
+                Log in
               </>
             )}
           </Button>
@@ -84,13 +83,14 @@ function LoginForm() {
       </div>
 
       <p className="text-center text-sm text-[var(--text-secondary)] mt-6">
-        No account?{" "}
-        <Link
-          href="/register"
-          className="text-[var(--accent-primary)] hover:text-[var(--neon-blue)] font-medium transition-colors"
+        {organiser ? "Playing as a team?" : "Lost your password? Ask an organiser at the desk."}{" "}
+        <button
+          type="button"
+          onClick={() => setOrganiser((v) => !v)}
+          className="font-bold text-[var(--accent)] underline underline-offset-4 hover:text-[var(--accent-bright)]"
         >
-          Register
-        </Link>
+          {organiser ? "Use Team ID" : "Organiser log in"}
+        </button>
       </p>
     </div>
   )
@@ -98,9 +98,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative">
-      <div className="absolute inset-0 bg-grid opacity-40" />
-      <div className="absolute inset-0 bg-hero-glow" />
+    <div className="min-h-screen flex items-center justify-center px-4 relative noise">
+      <div className="absolute inset-0 bg-grid" />
       <div className="relative z-10">
         <Suspense fallback={<div className="text-[var(--text-muted)] font-mono text-sm">Loading...</div>}>
           <LoginForm />

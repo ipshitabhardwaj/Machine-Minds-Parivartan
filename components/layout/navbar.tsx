@@ -6,7 +6,6 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import {
-  Shield,
   Flag,
   Trophy,
   LayoutDashboard,
@@ -41,20 +40,16 @@ export function Navbar({ user }: NavbarProps) {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-white/[0.04]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
+    <nav className="sticky top-0 z-50 bg-[var(--bg-primary)]/90 backdrop-blur-md border-b border-[var(--border-primary)]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-14">
           <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2 group">
-            <Shield className="h-5 w-5 text-[var(--accent-primary)] group-hover:text-[var(--neon-blue)] transition-colors" />
-            <span className="font-mono font-bold text-base tracking-tight">
-              <span className="text-[var(--accent-primary)]">MM</span>
-              <span className="text-[var(--text-muted)]">{"/"}</span>
-              <span className="text-[var(--text-primary)]">CTF</span>
-            </span>
+            <span className="block h-3.5 w-3.5 bg-[var(--accent)]" aria-hidden="true" />
+            <span className="font-stencil text-xl font-black uppercase leading-none tracking-wide">Machine Minds</span>
           </Link>
 
           {user && (
-            <div className="hidden md:flex items-center gap-0.5 bg-[var(--bg-card)]/50 rounded-xl border border-[var(--border-primary)] px-1.5 py-1">
+            <div className="hidden md:flex items-center gap-0.5 border border-[var(--border-primary)] px-1 py-0.5">
               {navLinks.map((link) => {
                 const Icon = link.icon
                 const isActive = pathname.startsWith(link.href)
@@ -63,13 +58,13 @@ export function Navbar({ user }: NavbarProps) {
                     key={link.href}
                     href={link.href}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium transition-colors",
                       isActive
-                        ? "text-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
-                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
+                        ? "text-[var(--accent)] bg-[var(--accent)]/10"
+                        : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3 w-3" />
                     {link.label}
                   </Link>
                 )
@@ -78,13 +73,13 @@ export function Navbar({ user }: NavbarProps) {
                 <Link
                   href="/admin"
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium transition-colors",
                     pathname.startsWith("/admin")
-                      ? "text-[var(--neon-pink)] bg-[var(--neon-pink)]/10"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/[0.03]"
+                      ? "text-[var(--accent-yellow)] bg-[var(--accent-yellow)]/10"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
                   )}
                 >
-                  <Settings className="h-3.5 w-3.5" />
+                  <Settings className="h-3 w-3" />
                   Admin
                 </Link>
               )}
@@ -94,13 +89,13 @@ export function Navbar({ user }: NavbarProps) {
           <div className="flex items-center gap-2">
             {user ? (
               <>
-                <span className="hidden sm:flex items-center gap-2 text-xs text-[var(--text-secondary)] font-mono px-3 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-primary)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <span className="hidden sm:flex items-center gap-2 text-xs text-[var(--text-secondary)] font-mono px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-primary)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-green)]" />
                   {user.display_name}
                 </span>
                 <button
                   onClick={handleSignOut}
-                  className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--accent-coral)] hover:bg-[var(--accent-coral)]/10 transition-all duration-200 cursor-pointer"
+                  className="p-2 text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors cursor-pointer"
                   title="Sign out"
                 >
                   <LogOut className="h-4 w-4" />
@@ -110,33 +105,33 @@ export function Navbar({ user }: NavbarProps) {
               <div className="hidden md:flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                  className="px-3 py-1.5 text-sm font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                 >
-                  Sign In
+                  login
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 text-sm font-bold rounded-lg bg-[var(--accent-primary)] text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all"
+                  className="px-3 py-1.5 text-sm font-mono font-bold bg-[var(--accent)] text-[var(--bg-primary)] hover:bg-[var(--accent-bright)] transition-colors"
                 >
-                  Register
+                  register
                 </Link>
               </div>
             )}
             {user && (
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
-                className="md:hidden p-2 rounded-lg text-[var(--text-secondary)] hover:bg-white/[0.03] cursor-pointer"
+                className="md:hidden p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-card)] cursor-pointer"
               >
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
             )}
             {!user && (
               <div className="md:hidden flex items-center gap-2">
-                <Link href="/login" className="px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)]">
-                  Sign In
+                <Link href="/login" className="px-3 py-1.5 text-sm font-mono text-[var(--text-secondary)]">
+                  login
                 </Link>
-                <Link href="/register" className="px-3 py-1.5 text-sm font-bold rounded-lg bg-[var(--accent-primary)] text-white">
-                  Register
+                <Link href="/register" className="px-3 py-1.5 text-sm font-mono font-bold bg-[var(--accent)] text-[var(--bg-primary)]">
+                  register
                 </Link>
               </div>
             )}
@@ -145,7 +140,7 @@ export function Navbar({ user }: NavbarProps) {
       </div>
 
       {user && mobileOpen && (
-        <div className="md:hidden border-t border-white/[0.04] bg-[var(--bg-secondary)]/95 backdrop-blur-xl">
+        <div className="md:hidden border-t border-[var(--border-primary)] bg-[var(--bg-secondary)]">
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon
@@ -156,9 +151,9 @@ export function Navbar({ user }: NavbarProps) {
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    "flex items-center gap-2 px-3 py-2.5 text-xs font-mono font-medium transition-colors",
                     isActive
-                      ? "text-[var(--accent-primary)] bg-[var(--accent-primary)]/10"
+                      ? "text-[var(--accent)] bg-[var(--accent)]/10"
                       : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   )}
                 >
@@ -172,9 +167,9 @@ export function Navbar({ user }: NavbarProps) {
                 href="/admin"
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                  "flex items-center gap-2 px-3 py-2.5 text-xs font-mono font-medium transition-colors",
                   pathname.startsWith("/admin")
-                    ? "text-[var(--neon-pink)] bg-[var(--neon-pink)]/10"
+                    ? "text-[var(--accent-yellow)] bg-[var(--accent-yellow)]/10"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 )}
               >

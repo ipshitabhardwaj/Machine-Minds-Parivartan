@@ -62,8 +62,7 @@ export function AdminChallengeForm() {
                 <option value="crypto">Cryptography</option>
                 <option value="forensics">Digital Forensics</option>
                 <option value="osint">OSINT</option>
-                <option value="reverse">Reverse Engineering</option>
-                <option value="ai">AI &amp; Prompt Security</option>
+                <option value="misc">Miscellaneous</option>
               </Select>
             </div>
           </div>
@@ -106,7 +105,7 @@ export function AdminChallengeForm() {
                 id="flag"
                 name="flag"
                 required
-                placeholder="MM{your_flag}"
+                placeholder="flag{your_flag}"
                 className="font-mono"
               />
             </div>
