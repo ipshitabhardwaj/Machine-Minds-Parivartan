@@ -25,65 +25,62 @@ export default async function ChallengePage({
   await connection()
 
   const { id } = await params
-  const profile = await requireAuth()
+  const admin = createAdminClient()
+
+  const [
+    profile,
+    state,
+    { data: challenge },
+    { count },
+    { data: firstBlood },
+  ] = await Promise.all([
+    requireAuth(),
+    getCompetitionState(),
+    admin.from("challenges").select("*").eq("id", id).eq("is_active", true).maybeSingle(),
+    admin.from("solves").select("*", { count: "exact", head: true }).eq("challenge_id", id),
+    admin
+      .from("solves")
+      .select("teams(name)")
+      .eq("challenge_id", id)
+      .eq("is_first_blood", true)
+      .maybeSingle(),
+  ])
 
   if (!profile.team_id && !profile.is_admin) redirect("/dashboard")
 
-  const state = await getCompetitionState()
   if (state.phase === "upcoming" && !profile.is_admin) {
     return <WaitingRoom startTime={state.startTime} />
   }
-
-  const admin = createAdminClient()
-
-  const { data: challenge } = await admin
-    .from("challenges")
-    .select("*")
-    .eq("id", id)
-    .eq("is_active", true)
-    .single()
 
   if (!challenge) notFound()
 
   let solved = false
   let hintUnlocked = false
-  let solveCount = 0
+  const solveCount = count || 0
   let firstBloodTeam: string | null = null
 
   if (profile.team_id) {
-    const { data: solve } = await admin
-      .from("solves")
-      .select("id")
-      .eq("challenge_id", id)
-      .eq("team_id", profile.team_id)
-      .single()
+    const [{ data: solve }, { data: hint }] = await Promise.all([
+      admin
+        .from("solves")
+        .select("id")
+        .eq("challenge_id", id)
+        .eq("team_id", profile.team_id)
+        .maybeSingle(),
+      admin
+        .from("hint_unlocks")
+        .select("id")
+        .eq("challenge_id", id)
+        .eq("team_id", profile.team_id)
+        .maybeSingle(),
+    ])
     solved = !!solve
-
-    const { data: hint } = await admin
-      .from("hint_unlocks")
-      .select("id")
-      .eq("challenge_id", id)
-      .eq("team_id", profile.team_id)
-      .single()
     hintUnlocked = !!hint
   }
 
-  const { count } = await admin
-    .from("solves")
-    .select("*", { count: "exact", head: true })
-    .eq("challenge_id", id)
-  solveCount = count || 0
-
-  const { data: firstBlood } = await admin
-    .from("solves")
-    .select("teams(name)")
-    .eq("challenge_id", id)
-    .eq("is_first_blood", true)
-    .single()
-
   if (firstBlood) {
-    const teamArr = firstBlood.teams as unknown as { name: string }[] | null
-    firstBloodTeam = teamArr?.[0]?.name || null
+    const t = firstBlood.teams as unknown as { name: string }[] | { name: string } | null
+    firstBloodTeam = (Array.isArray(t) ? t[0]?.name : t?.name) || null
   }
 
   return (

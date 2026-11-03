@@ -1,8 +1,7 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isAdmin } from "@/lib/auth"
+import { isAdmin, getUser } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { createHash } from "crypto"
 import { z } from "zod"
@@ -18,10 +17,7 @@ function hashFlag(flag: string): string {
 }
 
 async function requireAdminAction() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error("Not authenticated")
   const admin = await isAdmin(user.id)
   if (!admin) throw new Error("Not authorized")
@@ -300,10 +296,7 @@ export interface CreatedTeam {
 }
 
 async function requireAdminWithEmail() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) throw new Error("Not authenticated")
   if (!(await isAdmin(user.id))) throw new Error("Not authorized")
   return user.email || ""
@@ -371,6 +364,7 @@ export async function createTeamsBatch(
 
     let finalName = teamName
     let teamId: string | null = null
+    let teamErrMsg = ""
     for (let attempt = 0; attempt < 2 && !teamId; attempt++) {
       const { data: team, error: teamErr } = await admin
         .from("teams")
@@ -385,16 +379,20 @@ export async function createTeamsBatch(
           member2_email: row.email2 || null,
           college: row.college || null,
           login_email: email,
+          login_password: password,
         })
         .select("id")
         .single()
       if (team) teamId = team.id
-      else if (teamErr?.code === "23505" && attempt === 0) finalName = `${teamName} (${code})`
-      else break
+      else {
+        teamErrMsg = teamErr?.message || ""
+        if (teamErr?.code === "23505" && attempt === 0) finalName = `${teamName} (${code})`
+        else break
+      }
     }
     if (!teamId) {
       await admin.auth.admin.deleteUser(userId)
-      results.push({ ...base, ok: false, error: "Could not save the team (duplicate name or ID?)" })
+      results.push({ ...base, ok: false, error: `Could not save the team: ${teamErrMsg || "duplicate name or ID?"}` })
       continue
     }
 
@@ -434,6 +432,15 @@ export async function resetTeamPassword(teamId: string) {
   const password = generatePassword()
   const { error } = await admin.auth.admin.updateUserById(team.captain_id, { password })
   if (error) return { error: "Could not reset the password", password: null, code: null }
+  const { error: saveErr } = await admin
+    .from("teams")
+    .update({ login_password: password })
+    .eq("id", teamId)
+  if (saveErr) {
+    return { error: `Password changed but could not be saved: ${saveErr.message}`, password, code: team.team_code as string | null }
+  }
+  revalidatePath("/admin/teams")
+  revalidatePath("/admin/slips")
   return { error: null, password, code: team.team_code as string | null }
 }
 
@@ -459,4 +466,100 @@ export async function deleteTeam(teamId: string) {
   revalidatePath("/admin")
   revalidatePath("/leaderboard")
   return { error: null }
+}
+
+
+/**
+ * Wipes the event so it can be run (or rehearsed) again. Requires the admin to
+ * type RESET. Always clears scores, submissions, hint unlocks and the
+ * start/end/pause/freeze state. With wipeTeams it also deletes every team and
+ * its login. The admin account and the challenges are always kept.
+ */
+export async function resetEvent(confirmText: string, wipeTeams: boolean) {
+  if (confirmText.trim() !== "RESET") {
+    return { error: "Type RESET (all capitals) to confirm" }
+  }
+  let adminId: string
+  try {
+    adminId = await requireAdminAction()
+  } catch {
+    return { error: "Not authorized" }
+  }
+
+  const admin = createAdminClient()
+
+  for (const table of ["solves", "submissions", "hint_unlocks"]) {
+    const { error } = await admin.from(table).delete().not("id", "is", null)
+    if (error) return { error: `Could not clear ${table}` }
+  }
+
+  const settings = await writeSettings({
+    is_active: "false",
+    is_paused: "false",
+    is_ended: "false",
+    leaderboard_frozen: "false",
+    teams_locked: "false",
+    start_time: "",
+    end_time: "",
+    frozen_at: "",
+  })
+  if (settings.error) return { error: settings.error }
+
+  if (wipeTeams) {
+    const { data: teams } = await admin.from("teams").select("id, captain_id")
+    const captainIds = (teams || [])
+      .map((t: { captain_id: string }) => t.captain_id)
+      .filter((id: string) => id && id !== adminId)
+
+    await admin.from("team_members").delete().not("id", "is", null)
+    await admin.from("profiles").update({ team_id: null }).not("team_id", "is", null)
+    const { error: teamsError } = await admin.from("teams").delete().not("id", "is", null)
+    if (teamsError) return { error: "Could not delete teams" }
+
+    // Never delete an organiser account, even if it was somehow a captain.
+    const { data: admins } = await admin.from("profiles").select("id").eq("is_admin", true)
+    const keep = new Set((admins || []).map((a: { id: string }) => a.id))
+
+    const toDelete = captainIds.filter((id: string) => !keep.has(id))
+    for (let i = 0; i < toDelete.length; i += 10) {
+      await Promise.all(
+        toDelete.slice(i, i + 10).map((id: string) => admin.auth.admin.deleteUser(id))
+      )
+    }
+  }
+
+  revalidatePath("/", "layout")
+  return { error: null }
+}
+
+
+/** Gives every team that has no stored password a fresh one (and saves it). */
+export async function setMissingPasswords() {
+  try {
+    await requireAdminAction()
+  } catch {
+    return { error: "Not authorized", done: 0 }
+  }
+  const admin = createAdminClient()
+  const { data: teams, error } = await admin
+    .from("teams")
+    .select("id, captain_id")
+    .is("login_password", null)
+  if (error) return { error: error.message, done: 0 }
+
+  let done = 0
+  for (const t of teams || []) {
+    const password = generatePassword()
+    const { error: authErr } = await admin.auth.admin.updateUserById(t.captain_id, { password })
+    if (authErr) continue
+    const { error: saveErr } = await admin
+      .from("teams")
+      .update({ login_password: password })
+      .eq("id", t.id)
+    if (saveErr) return { error: `Could not save: ${saveErr.message}`, done }
+    done += 1
+  }
+  revalidatePath("/admin/teams")
+  revalidatePath("/admin/slips")
+  return { error: null, done }
 }

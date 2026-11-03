@@ -6,13 +6,14 @@ import {
   startCompetition,
   endCompetition,
   setLeaderboardFrozen,
+  resetEvent,
 } from "@/app/actions/admin"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card"
-import { CheckCircle, Power, Pause, Play, Lock, Flag, Users } from "lucide-react"
+import { CheckCircle, Power, Pause, Play, Lock, Flag, Users, TriangleAlert } from "lucide-react"
 
 interface Props {
   settings: Record<string, string>
@@ -41,6 +42,10 @@ export function AdminSettingsForm({ settings: initial, phase: initialPhase }: Pr
   const [settings, setSettings] = useState(initial)
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const [resetText, setResetText] = useState("")
+  const [wipeTeams, setWipeTeams] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   async function runAction(
     name: string,
@@ -58,6 +63,19 @@ export function AdminSettingsForm({ settings: initial, phase: initialPhase }: Pr
     setSettings((prev) => ({ ...prev, ...next }))
     setPhase(nextPhase)
     router.refresh()
+  }
+
+  async function handleReset() {
+    setResetting(true)
+    setResetError(null)
+    const res = await resetEvent(resetText, wipeTeams)
+    if (res.error) {
+      setResetError(res.error)
+      setResetting(false)
+      return
+    }
+    // Full reload so every field shows the cleared state.
+    window.location.reload()
   }
 
   async function handleUpdate(key: string, value: string) {
@@ -378,6 +396,55 @@ export function AdminSettingsForm({ settings: initial, phase: initialPhase }: Pr
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Danger zone */}
+      <Card>
+        <CardTitle>
+          <span className="inline-flex items-center gap-2 text-[var(--accent-coral)]">
+            <TriangleAlert className="h-5 w-5" /> Danger zone: reset event
+          </span>
+        </CardTitle>
+        <CardDescription>
+          Clears all scores, submissions, hints and the start/end times, and puts
+          the event back to NOT STARTED. Challenges and your admin login are kept.
+        </CardDescription>
+        <CardContent className="mt-4 space-y-4">
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={wipeTeams}
+              onChange={(e) => setWipeTeams(e.target.checked)}
+            />
+            <span>
+              Also delete <strong>all teams and their logins</strong> (you will need to
+              import them again)
+            </span>
+          </label>
+          <div className="max-w-xs">
+            <Label>
+              Type <span className="font-mono font-black">RESET</span> to confirm
+            </Label>
+            <Input
+              value={resetText}
+              onChange={(e) => setResetText(e.target.value)}
+              placeholder="RESET"
+              autoComplete="off"
+              className="font-mono"
+            />
+          </div>
+          {resetError && (
+            <p className="text-sm text-[var(--accent-coral)]">{resetError}</p>
+          )}
+          <Button
+            variant="danger"
+            onClick={handleReset}
+            disabled={resetText !== "RESET" || resetting}
+          >
+            {resetting ? "Resetting..." : wipeTeams ? "Reset everything incl. teams" : "Reset event"}
+          </Button>
         </CardContent>
       </Card>
     </div>

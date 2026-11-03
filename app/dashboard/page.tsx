@@ -14,85 +14,68 @@ import {
   Users,
   Flame,
 } from "lucide-react"
-import type { CompetitionStatus } from "@/types"
 import { getCompetitionState } from "@/lib/competition"
+import { getStandingsData } from "@/lib/standings"
 import Link from "next/link"
-
-async function getCompetitionStatus(): Promise<CompetitionStatus> {
-  const admin = createAdminClient()
-  const { data } = await admin.from("competition_settings").select("key, value")
-  const map = Object.fromEntries(
-    (data || []).map((s: { key: string; value: string }) => [s.key, s.value])
-  )
-  return {
-    is_active: map.is_active === "true",
-    is_paused: map.is_paused === "true",
-    leaderboard_frozen: map.leaderboard_frozen === "true",
-    start_time: map.start_time || null,
-    end_time: map.end_time || null,
-    competition_name: map.competition_name || "MACHINE MINDS",
-    flag_format: map.flag_format || "flag{...}",
-    max_team_size: parseInt(map.max_team_size || "4"),
-    min_team_size: parseInt(map.min_team_size || "2"),
-  }
-}
 
 export default async function DashboardPage() {
   await connection()
 
   const profile = await requireAuth()
   const admin = createAdminClient()
-  const status = await getCompetitionStatus()
-  const compState = await getCompetitionState()
+  const teamId = profile.team_id as string | null
 
-  let teamData = null
-  let teamScore = 0
-  let solveCount = 0
+  // Everything this page needs is fetched in one parallel batch.
+  const [compState, standings, teamRes, solvesRes, challengeCount] =
+    await Promise.all([
+      getCompetitionState(),
+      getStandingsData(),
+      teamId
+        ? admin.from("teams").select("*").eq("id", teamId).single()
+        : Promise.resolve({ data: null }),
+      teamId
+        ? admin
+            .from("solves")
+            .select("points_awarded, solved_at, is_first_blood, challenges(title)")
+            .eq("team_id", teamId)
+            .order("solved_at", { ascending: false })
+        : Promise.resolve({ data: null }),
+      admin
+        .from("challenges")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true),
+    ])
+
+  const status = { end_time: compState.endTime }
+  const totalChallenges = challengeCount.count
+
+  const teamData = teamRes.data
+  const solves = solvesRes.data as
+    | { points_awarded: number; solved_at: string; is_first_blood: boolean; challenges: unknown }[]
+    | null
+  const solveCount = solves?.length || 0
+  const teamScore = (solves || []).reduce((sum, s) => sum + s.points_awarded, 0)
+  const recentSolves = (solves || []).slice(0, 5).map((s) => ({
+    challenge_title:
+      ((s.challenges as { title: string }[] | { title: string } | null) &&
+        (Array.isArray(s.challenges)
+          ? (s.challenges as { title: string }[])[0]?.title
+          : (s.challenges as { title: string }).title)) ||
+      "Unknown",
+    points: s.points_awarded,
+    solved_at: s.solved_at,
+    is_first_blood: s.is_first_blood,
+  }))
+
   let teamRank = 0
-  let recentSolves: { challenge_title: string; points: number; solved_at: string; is_first_blood: boolean }[] = []
-
-  if (profile.team_id) {
-    const { data: team } = await admin
-      .from("teams")
-      .select("*")
-      .eq("id", profile.team_id)
-      .single()
-    teamData = team
-
-    const { data: solves } = await admin
-      .from("solves")
-      .select("points_awarded, solved_at, is_first_blood, challenges(title)")
-      .eq("team_id", profile.team_id)
-      .order("solved_at", { ascending: false })
-
-    solveCount = solves?.length || 0
-    teamScore = (solves || []).reduce(
-      (sum: number, s: { points_awarded: number }) => sum + s.points_awarded,
-      0
-    )
-
-    recentSolves = (solves || []).slice(0, 5).map((s: { challenges: unknown; points_awarded: number; solved_at: string; is_first_blood: boolean }) => ({
-      challenge_title: ((s.challenges as { title: string }[] | null)?.[0]?.title) || "Unknown",
-      points: s.points_awarded,
-      solved_at: s.solved_at,
-      is_first_blood: s.is_first_blood,
-    }))
-
-    const { data: teamSolves } = await admin
-      .from("solves")
-      .select("team_id, points_awarded")
+  if (teamId) {
     const scores = new Map<string, number>()
-    for (const s of teamSolves || []) {
+    for (const s of standings.solves) {
       scores.set(s.team_id, (scores.get(s.team_id) || 0) + s.points_awarded)
     }
     const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1])
-    teamRank = sorted.findIndex(([id]) => id === profile.team_id) + 1
+    teamRank = sorted.findIndex(([id]) => id === teamId) + 1
   }
-
-  const { count: totalChallenges } = await admin
-    .from("challenges")
-    .select("*", { count: "exact", head: true })
-    .eq("is_active", true)
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">

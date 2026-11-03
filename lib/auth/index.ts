@@ -4,28 +4,28 @@ import { redirect } from "next/navigation"
 import { cache } from "react"
 import type { Profile } from "@/types"
 
+/**
+ * Reads the signed-in user from the session cookie. getClaims() verifies the
+ * JWT locally (no network round-trip to Supabase Auth), which removes ~100ms+
+ * from every page load. The proxy still refreshes expiring sessions.
+ */
 export const getUser = cache(async () => {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+  const { data } = await supabase.auth.getClaims()
+  const c = data?.claims
+  if (!c?.sub) return null
+  return { id: c.sub as string, email: (c.email as string | undefined) ?? null }
 })
 
 export const getProfile = cache(async (): Promise<Profile | null> => {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getUser()
   if (!user) return null
-
-  const { data: profile } = await supabase
+  const admin = createAdminClient()
+  const { data: profile } = await admin
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single()
-
   return profile
 })
 
@@ -36,16 +36,10 @@ export async function requireAuth(): Promise<Profile> {
 }
 
 export async function requireAdmin(): Promise<Profile> {
+  // Profile is read with the service role, so is_admin is authoritative.
   const profile = await requireAuth()
-  const admin = await createAdminClient()
-  const { data } = await admin
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", profile.id)
-    .single()
-
-  if (!data?.is_admin) redirect("/dashboard")
-  return { ...profile, is_admin: true }
+  if (!profile.is_admin) redirect("/dashboard")
+  return profile
 }
 
 export async function isAdmin(userId: string): Promise<boolean> {

@@ -16,7 +16,10 @@ export function TeamActions({ teamId, teamName }: { teamId: string; teamName: st
     const res = await resetTeamPassword(teamId)
     setBusy(false)
     if (res.error) alert(res.error)
-    else setShown(`${res.code}  ${res.password}`)
+    else {
+      setShown(`${res.code}  ${res.password}`)
+      router.refresh()
+    }
   }
 
   async function remove() {

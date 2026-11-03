@@ -28,9 +28,10 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // getClaims verifies the JWT locally and only calls Supabase when the
+  // token has to be refreshed.
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims ?? null
 
   const pathname = request.nextUrl.pathname
 

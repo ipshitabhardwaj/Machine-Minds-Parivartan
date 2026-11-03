@@ -2,7 +2,6 @@ export const instant = false
 
 import { connection } from "next/server"
 import { requireAuth } from "@/lib/auth"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Flame, Clock, Crown, Medal } from "lucide-react"
 import type { LeaderboardEntry } from "@/types"
@@ -10,27 +9,21 @@ import { timeAgo } from "@/lib/utils"
 import { getCompetitionState } from "@/lib/competition"
 import { Podium } from "@/components/leaderboard-podium"
 import { AutoRefresh } from "@/components/auto-refresh"
+import { getStandingsData } from "@/lib/standings"
 
 export default async function LeaderboardPage() {
   await connection()
 
-  const profile = await requireAuth()
-  const admin = createAdminClient()
-
-  const state = await getCompetitionState()
+  const [profile, state, data] = await Promise.all([
+    requireAuth(),
+    getCompetitionState(),
+    getStandingsData(),
+  ])
   const ended = state.phase === "ended"
   // Freeze hides solves made after the freeze moment. Once the event has
   // ended the final, true standings are always shown.
   const isFrozen = state.frozen && !ended
   const cutoff = isFrozen && state.frozenAt ? new Date(state.frozenAt).getTime() : null
-
-  const { data: allSolves } = await admin
-    .from("solves")
-    .select("team_id, points_awarded, is_first_blood, solved_at, teams(name)")
-
-  const solves = (allSolves || []).filter(
-    (s) => cutoff === null || new Date(s.solved_at).getTime() <= cutoff
-  )
 
   const teamMap = new Map<
     string,
@@ -43,47 +36,29 @@ export default async function LeaderboardPage() {
     }
   >()
 
-  for (const s of solves || []) {
-    const existing = teamMap.get(s.team_id) || {
-      team_name: ((s.teams as unknown as { name: string }[] | null)?.[0]?.name) || "Unknown",
+  for (const t of data.teams) {
+    teamMap.set(t.id, {
+      team_name: t.name,
       total_points: 0,
       solves_count: 0,
       last_solve_time: null,
       first_bloods: 0,
-    }
-
-    existing.total_points += s.points_awarded
-    existing.solves_count += 1
-    existing.first_bloods += s.is_first_blood ? 1 : 0
-
-    if (
-      !existing.last_solve_time ||
-      new Date(s.solved_at) > new Date(existing.last_solve_time)
-    ) {
-      existing.last_solve_time = s.solved_at
-    }
-
-    teamMap.set(s.team_id, existing)
+    })
   }
 
-  const { data: allTeams } = await admin.from("teams").select("id, name")
-  for (const t of allTeams || []) {
-    if (!teamMap.has(t.id)) {
-      teamMap.set(t.id, {
-        team_name: t.name,
-        total_points: 0,
-        solves_count: 0,
-        last_solve_time: null,
-        first_bloods: 0,
-      })
+  for (const s of data.solves) {
+    if (cutoff !== null && new Date(s.solved_at).getTime() > cutoff) continue
+    const e = teamMap.get(s.team_id)
+    if (!e) continue
+    e.total_points += s.points_awarded
+    e.solves_count += 1
+    e.first_bloods += s.is_first_blood ? 1 : 0
+    if (!e.last_solve_time || new Date(s.solved_at) > new Date(e.last_solve_time)) {
+      e.last_solve_time = s.solved_at
     }
   }
 
-  // College comes from the team record
-  const { data: teamRows } = await admin.from("teams").select("id, college")
-  const collegeByTeam = new Map(
-    (teamRows || []).map((t: { id: string; college: string | null }) => [t.id, t.college])
-  )
+  const collegeByTeam = new Map(data.teams.map((t) => [t.id, t.college]))
 
   const leaderboard: (LeaderboardEntry & { college: string | null })[] = [...teamMap.entries()]
     .sort((a, b) => {
@@ -98,11 +73,11 @@ export default async function LeaderboardPage() {
       }
       return 0
     })
-    .map(([team_id, data], index) => ({
+    .map(([team_id, d], index) => ({
       rank: index + 1,
       team_id,
       college: collegeByTeam.get(team_id) ?? null,
-      ...data,
+      ...d,
     }))
 
   return (

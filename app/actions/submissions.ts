@@ -1,7 +1,7 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getUser } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { createHash } from "crypto"
 import { getCompetitionState } from "@/lib/competition"
@@ -10,174 +10,120 @@ function hashFlag(flag: string): string {
   return createHash("sha256").update(flag.trim()).digest("hex")
 }
 
+type SubmitState = {
+  error: string | null
+  success: boolean
+  message: string | null
+}
+
+const fail = (error: string): SubmitState => ({ error, success: false, message: null })
+const note = (message: string): SubmitState => ({ error: null, success: false, message })
+
 export async function submitFlag(
-  _prevState: {
-    error: string | null
-    success: boolean
-    message: string | null
-  },
+  _prevState: SubmitState,
   formData: FormData
-) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return { error: "Not authenticated", success: false, message: null }
-  }
-
-  const admin = createAdminClient()
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("team_id")
-    .eq("id", user.id)
-    .single()
-
-  if (!profile?.team_id) {
-    return {
-      error: "You must be in a team to submit flags",
-      success: false,
-      message: null,
-    }
-  }
+): Promise<SubmitState> {
+  const user = await getUser()
+  if (!user) return fail("Not authenticated")
 
   const challengeId = formData.get("challengeId") as string
   const flag = (formData.get("flag") as string)?.trim()
+  if (!challengeId || !flag) return fail("Missing challenge ID or flag")
 
-  if (!challengeId || !flag) {
-    return { error: "Missing challenge ID or flag", success: false, message: null }
-  }
+  const admin = createAdminClient()
 
-  // Check competition status (server-side source of truth)
-  const state = await getCompetitionState()
+  // Independent lookups run together instead of one after another.
+  const [{ data: profile }, state] = await Promise.all([
+    admin.from("profiles").select("team_id").eq("id", user.id).single(),
+    getCompetitionState(),
+  ])
 
-  if (state.phase === "upcoming") {
-    return {
-      error: "The competition has not started yet",
-      success: false,
-      message: null,
-    }
-  }
-  if (state.phase === "ended") {
-    return {
-      error: "The competition has ended",
-      success: false,
-      message: null,
-    }
-  }
-  if (state.phase === "paused") {
-    return {
-      error: "Submissions are currently paused",
-      success: false,
-      message: null,
-    }
-  }
+  if (!profile?.team_id) return fail("You must be in a team to submit flags")
+  const teamId = profile.team_id as string
 
-  // Check if already solved by this team
-  const { data: existingSolve } = await admin
-    .from("solves")
-    .select("id")
-    .eq("challenge_id", challengeId)
-    .eq("team_id", profile.team_id)
-    .single()
+  // Competition status (server-side source of truth)
+  if (state.phase === "upcoming") return fail("The competition has not started yet")
+  if (state.phase === "ended") return fail("The competition has ended")
+  if (state.phase === "paused") return fail("Submissions are currently paused")
 
-  if (existingSolve) {
-    return {
-      error: null,
-      success: false,
-      message: "Your team has already solved this challenge",
-    }
-  }
+  const [{ data: existingSolve }, { data: lastSubmission }, { data: challenge }] =
+    await Promise.all([
+      admin
+        .from("solves")
+        .select("id")
+        .eq("challenge_id", challengeId)
+        .eq("team_id", teamId)
+        .maybeSingle(),
+      admin
+        .from("submissions")
+        .select("created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("challenges")
+        .select("id, flag_hash, points, is_active, hint_penalty")
+        .eq("id", challengeId)
+        .maybeSingle(),
+    ])
 
-  // Rate limit: check last submission time
-  const { data: lastSubmission } = await admin
-    .from("submissions")
-    .select("created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single()
+  if (existingSolve) return note("Your team has already solved this challenge")
 
+  // Rate limit (cooldown value comes with the competition state, no extra query)
   if (lastSubmission) {
-    const { data: cooldownSetting } = await admin
-      .from("competition_settings")
-      .select("value")
-      .eq("key", "submission_cooldown_seconds")
-      .single()
-
-    const cooldown = parseInt(cooldownSetting?.value || "10")
-    const lastTime = new Date(lastSubmission.created_at).getTime()
-    const now = Date.now()
-
-    if (now - lastTime < cooldown * 1000) {
-      const waitSecs = Math.ceil((cooldown * 1000 - (now - lastTime)) / 1000)
-      return {
-        error: `Please wait ${waitSecs} seconds before submitting again`,
-        success: false,
-        message: null,
-      }
+    const cooldown = parseInt(state.settings.submission_cooldown_seconds || "10")
+    const elapsed = Date.now() - new Date(lastSubmission.created_at).getTime()
+    if (elapsed < cooldown * 1000) {
+      const waitSecs = Math.ceil((cooldown * 1000 - elapsed) / 1000)
+      return fail(`Please wait ${waitSecs} seconds before submitting again`)
     }
   }
 
-  // Get challenge and validate flag
-  const { data: challenge } = await admin
-    .from("challenges")
-    .select("id, flag_hash, points, is_active")
-    .eq("id", challengeId)
-    .single()
+  if (!challenge || !challenge.is_active) return fail("Challenge not found")
 
-  if (!challenge || !challenge.is_active) {
-    return { error: "Challenge not found", success: false, message: null }
-  }
-
-  const submittedHash = hashFlag(flag)
-  const isCorrect = submittedHash === challenge.flag_hash
-
-  // Record submission
-  await admin.from("submissions").insert({
-    challenge_id: challengeId,
-    team_id: profile.team_id,
-    user_id: user.id,
-    submitted_flag: flag,
-    is_correct: isCorrect,
-  })
+  const isCorrect = hashFlag(flag) === challenge.flag_hash
 
   if (!isCorrect) {
-    return { error: "Incorrect flag", success: false, message: null }
+    await admin.from("submissions").insert({
+      challenge_id: challengeId,
+      team_id: teamId,
+      user_id: user.id,
+      submitted_flag: flag,
+      is_correct: false,
+    })
+    return fail("Incorrect flag")
   }
 
-  // Check for first blood
-  const { count: existingSolves } = await admin
-    .from("solves")
-    .select("*", { count: "exact", head: true })
-    .eq("challenge_id", challengeId)
+  const [, { count: existingSolves }, { data: hintUnlock }] = await Promise.all([
+    admin.from("submissions").insert({
+      challenge_id: challengeId,
+      team_id: teamId,
+      user_id: user.id,
+      submitted_flag: flag,
+      is_correct: true,
+    }),
+    admin
+      .from("solves")
+      .select("*", { count: "exact", head: true })
+      .eq("challenge_id", challengeId),
+    admin
+      .from("hint_unlocks")
+      .select("id")
+      .eq("challenge_id", challengeId)
+      .eq("team_id", teamId)
+      .maybeSingle(),
+  ])
 
   const isFirstBlood = (existingSolves || 0) === 0
+  const pointsAwarded = hintUnlock
+    ? Math.max(0, challenge.points - (challenge.hint_penalty || 0))
+    : challenge.points
 
-  // Check for hint penalty
-  const { data: hintUnlock } = await admin
-    .from("hint_unlocks")
-    .select("id")
-    .eq("challenge_id", challengeId)
-    .eq("team_id", profile.team_id)
-    .single()
-
-  let pointsAwarded = challenge.points
-  if (hintUnlock) {
-    const { data: challengeFull } = await admin
-      .from("challenges")
-      .select("hint_penalty")
-      .eq("id", challengeId)
-      .single()
-    pointsAwarded = Math.max(0, challenge.points - (challengeFull?.hint_penalty || 0))
-  }
-
-  // Insert solve (unique constraint prevents duplicates)
+  // Unique constraint (challenge_id, team_id) prevents double scoring
   const { error: solveError } = await admin.from("solves").insert({
     challenge_id: challengeId,
-    team_id: profile.team_id,
+    team_id: teamId,
     user_id: user.id,
     points_awarded: pointsAwarded,
     is_first_blood: isFirstBlood,
@@ -185,18 +131,13 @@ export async function submitFlag(
 
   if (solveError) {
     if (solveError.code === "23505") {
-      return {
-        error: null,
-        success: false,
-        message: "Your team has already solved this challenge",
-      }
+      return note("Your team has already solved this challenge")
     }
-    return { error: "Failed to record solve", success: false, message: null }
+    return fail("Failed to record solve")
   }
 
   revalidatePath("/challenges")
   revalidatePath("/dashboard")
-  revalidatePath("/leaderboard")
 
   return {
     error: null,
@@ -208,39 +149,28 @@ export async function submitFlag(
 }
 
 export async function unlockHint(challengeId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getUser()
   if (!user) return { error: "Not authenticated", hint: null }
 
   const admin = createAdminClient()
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("team_id")
-    .eq("id", user.id)
-    .single()
+  const [{ data: profile }, hintState, { data: challenge }] = await Promise.all([
+    admin.from("profiles").select("team_id").eq("id", user.id).single(),
+    getCompetitionState(),
+    admin
+      .from("challenges")
+      .select("hint, hint_penalty")
+      .eq("id", challengeId)
+      .maybeSingle(),
+  ])
 
-  if (!profile?.team_id) {
-    return { error: "You must be in a team", hint: null }
-  }
+  if (!profile?.team_id) return { error: "You must be in a team", hint: null }
 
-  const hintState = await getCompetitionState()
   if (hintState.phase !== "live" && hintState.phase !== "paused") {
     return { error: "The competition is not running", hint: null }
   }
 
-  const { data: challenge } = await admin
-    .from("challenges")
-    .select("hint, hint_penalty")
-    .eq("id", challengeId)
-    .single()
-
-  if (!challenge?.hint) {
-    return { error: "No hint available", hint: null }
-  }
+  if (!challenge?.hint) return { error: "No hint available", hint: null }
 
   // Upsert hint unlock (idempotent)
   await admin.from("hint_unlocks").upsert(

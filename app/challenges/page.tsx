@@ -12,25 +12,31 @@ import type { Challenge } from "@/types"
 export default async function ChallengesPage() {
   await connection()
 
-  const profile = await requireAuth()
+  const admin = createAdminClient()
+
+  // Profile, phase and the shared challenge data load in parallel.
+  const [profile, state, { data: challenges }, { data: allFirstBloods }] =
+    await Promise.all([
+      requireAuth(),
+      getCompetitionState(),
+      admin
+        .from("challenges")
+        .select("id, title, category, difficulty, points, is_active")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+      admin
+        .from("solves")
+        .select("challenge_id, teams(name)")
+        .eq("is_first_blood", true),
+    ])
+
   if (!profile.team_id && !profile.is_admin) redirect("/dashboard")
 
-  const state = await getCompetitionState()
   if (state.phase === "upcoming" && !profile.is_admin) {
     return <WaitingRoom startTime={state.startTime} />
   }
 
-  const admin = createAdminClient()
-
-  const { data: challenges } = await admin
-    .from("challenges")
-    .select("id, title, category, difficulty, points, is_active")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-
   let solvedIds: string[] = []
-  const firstBloods: Record<string, string> = {}
-
   if (profile.team_id) {
     const { data: solves } = await admin
       .from("solves")
@@ -39,15 +45,10 @@ export default async function ChallengesPage() {
     solvedIds = (solves || []).map((s: { challenge_id: string }) => s.challenge_id)
   }
 
-  // Get first bloods
-  const { data: allFirstBloods } = await admin
-    .from("solves")
-    .select("challenge_id, teams(name)")
-    .eq("is_first_blood", true)
-
+  const firstBloods: Record<string, string> = {}
   for (const fb of allFirstBloods || []) {
-    const teamArr = fb.teams as unknown as { name: string }[] | null
-    firstBloods[fb.challenge_id] = teamArr?.[0]?.name || ""
+    const t = fb.teams as unknown as { name: string }[] | { name: string } | null
+    firstBloods[fb.challenge_id] = (Array.isArray(t) ? t[0]?.name : t?.name) || ""
   }
 
   return (
